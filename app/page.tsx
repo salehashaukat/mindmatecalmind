@@ -59,7 +59,7 @@ export default function Home() {
     return (
       <div style={{ textAlign: "center", marginTop: "50px", fontFamily: "sans-serif" }}>
         <h2>
-          Please <a href="/login" style={{ color: "#4CAF50" }}>login</a> to access MindMate
+          Please <a href="/login" style={{ color: "#4CAF50" }}>login</a> to access Calmind
         </h2>
       </div>
     );
@@ -67,7 +67,7 @@ export default function Home() {
 
   return (
     <div style={{ maxWidth: "600px", margin: "50px auto", fontFamily: "sans-serif" }}>
-      <h1 style={{ textAlign: "center" }}>MindMate</h1>
+      <h1 style={{ textAlign: "center" }}>Calmind</h1>
 
       <div
         style={{
@@ -81,10 +81,10 @@ export default function Home() {
       >
         {messages.map((msg, idx) => (
           <div key={idx} style={{ margin: "5px 0", color: msg.from === "ai" ? "#0070f3" : "#000" }}>
-            <strong>{msg.from === "ai" ? "MindMate: " : "You: "}</strong>{msg.text}
+            <strong>{msg.from === "ai" ? "Calmind: " : "You: "}</strong>{msg.text}
           </div>
         ))}
-        {loading && <div style={{ color: "#0070f3" }}>MindMate is typing...</div>}
+        {loading && <div style={{ color: "#0070f3" }}>Calmind is typing...</div>}
       </div>
 
       <div style={{ display: "flex" }}>
@@ -112,7 +112,7 @@ export default function Home() {
       </div>
 
       <div style={{ marginTop: "20px", fontSize: "12px", color: "#555", textAlign: "center" }}>
-        MindMate is not a replacement for human connection and does not provide medical advice.
+        Calmind is not a replacement for human connection and does not provide medical advice.
       </div>
     </div>
   );

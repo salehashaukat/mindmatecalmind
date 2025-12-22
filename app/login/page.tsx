@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Message = {
-  sender: "user" | "mindmate";
+  sender: "user" | "calmind";
   text: string;
 };
 
@@ -11,20 +11,20 @@ export default function LoginPage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [mindmateName, setMindmateName] = useState("MindMate");
+  const [calmindName, setCalmindName] = useState("Calmind");
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     const savedMessages = localStorage.getItem("messages");
-    const savedName = localStorage.getItem("mindmateName");
+    const savedName = localStorage.getItem("calmindName");
     if (savedMessages) setMessages(JSON.parse(savedMessages));
-    if (savedName) setMindmateName(savedName);
+    if (savedName) setCalmindName(savedName);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("messages", JSON.stringify(messages));
-    localStorage.setItem("mindmateName", mindmateName);
-  }, [messages, mindmateName]);
+    localStorage.setItem("calmindName", calmindName);
+  }, [messages, calmindName]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -43,7 +43,7 @@ export default function LoginPage() {
             {
               role: "system",
               content: `
-You are MindMate, a kind, warm, humorous AI companion. 
+You are Calmind, a kind, warm, humorous AI companion. 
 Always respond very short, like texting a friend. 
 Use comforting literary lines, quotes, or poetic phrases when appropriate. 
 Never give medical advice. 
@@ -63,14 +63,14 @@ Keep responses empathetic, casual, human-like, and concise.
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          { sender: "mindmate", text: data.text },
+          { sender: "calmind", text: data.text },
         ]);
         setIsTyping(false);
       }, 1000 + Math.random() * 1500);
     } catch {
       setMessages((prev) => [
         ...prev,
-        { sender: "mindmate", text: "Oops! Something went wrong." },
+        { sender: "calmind", text: "Oops! Something went wrong." },
       ]);
       setIsTyping(false);
     }
@@ -79,9 +79,9 @@ Keep responses empathetic, casual, human-like, and concise.
   const clearChat = () => setMessages([]);
   const deleteChat = () => {
     setMessages([]);
-    setMindmateName("MindMate");
+    setCalmindName("Calmind");
     localStorage.removeItem("messages");
-    localStorage.removeItem("mindmateName");
+    localStorage.removeItem("calmindName");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -105,7 +105,7 @@ Keep responses empathetic, casual, human-like, and concise.
   return (
     <div style={{ maxWidth: 500, margin: "0 auto", padding: 20, display: "flex", flexDirection: "column", height: "100vh" }}>
       <h1 style={{ color: "purple", textAlign: "center", marginBottom: 10 }}>
-        {mindmateName} 💜
+        {calmindName} 💜
       </h1>
 
       <div style={{ flex: 1, border: "1px solid #ccc", borderRadius: 8, padding: 10, overflowY: "auto", display: "flex", flexDirection: "column" }}>
@@ -129,7 +129,7 @@ Keep responses empathetic, casual, human-like, and concise.
           <div style={{ position: "absolute", right: 0, background: "#f9f9f9", border: "1px solid #ccc", borderRadius: 8, padding: 10, marginTop: 5, zIndex: 10 }}>
             <div style={{ marginBottom: 6 }}>
               <label>Name: </label>
-              <input value={mindmateName} onChange={(e) => setMindmateName(e.target.value)} style={{ padding: 4, borderRadius: 4, border: "1px solid #ccc" }} />
+              <input value={calmindName} onChange={(e) => setCalmindName(e.target.value)} style={{ padding: 4, borderRadius: 4, border: "1px solid #ccc" }} />
             </div>
             <button style={{ marginRight: 6, padding: "4px 8px", borderRadius: 4 }} onClick={clearChat}>Clear Chat</button>
             <button style={{ padding: "4px 8px", borderRadius: 4 }} onClick={deleteChat}>Delete Chat</button>
@@ -138,17 +138,8 @@ Keep responses empathetic, casual, human-like, and concise.
       </div>
 
       <footer style={{ marginTop: 20, fontSize: 12, color: "#888", textAlign: "center" }}>
-        {mindmateName} is not a replacement for human connection or a medical professional.
+        {calmindName} is not a replacement for human connection or a medical professional.
       </footer>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
