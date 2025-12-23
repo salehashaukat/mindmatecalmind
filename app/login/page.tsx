@@ -1,109 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useState } from "react";
+
+/* ---------- TYPES ---------- */
+type Sender = "user" | "calmind";
 
 type Message = {
-  sender: "user" | "calmind";
+  sender: Sender;
   text: string;
 };
 
-// Initialize Supabase client (public keys safe for client)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export default function LoginPage() {
+/* ---------- COMPONENT ---------- */
+export default function Page() {
+  const [step, setStep] = useState<"email" | "name" | "chat">("email");
   const [email, setEmail] = useState("");
-  const [hasOnboarded, setHasOnboarded] = useState(false);
-  const [calmindName, setCalmindName] = useState("Calmind");
+  const [companion, setCompanion] = useState("Calmind");
 
-  const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(false);
 
-  /* ---------------- ONBOARDING ---------------- */
-  const handleOnboard = async () => {
-    if (!email || !calmindName) return;
-
-    // Save to localStorage
-    localStorage.setItem("email", email);
-    localStorage.setItem("calmindName", calmindName);
-
-    // Insert or update user in Supabase
-    const { data: userData } = await supabase
-      .from("users")
-      .upsert({ email, calmind_name: calmindName }, { onConflict: "email" })
-      .select();
-
-    // Load previous messages if any
-    const { data: chatData } = await supabase
-      .from("chats")
-      .select("*")
-      .eq("user_email", email)
-      .order("created_at", { ascending: true });
-
-    if (chatData) {
-      setMessages(
-        chatData.map((c) => ({
-          sender: c.sender === "user" ? "user" : "calmind", // ensures TypeScript type
-          text: c.message,
-        }))
-      );
-    }
-
-    setHasOnboarded(true);
-  };
-
-  /* ---------------- LOAD LOCAL DATA ---------------- */
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("email");
-    const savedName = localStorage.getItem("calmindName");
-    const savedMessages = localStorage.getItem("messages");
-
-    if (savedEmail && savedName) {
-      setEmail(savedEmail);
-      setCalmindName(savedName);
-      setHasOnboarded(true);
-    }
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (hasOnboarded) {
-      localStorage.setItem("messages", JSON.stringify(messages));
-      localStorage.setItem("calmindName", calmindName);
-    }
-  }, [messages, calmindName, hasOnboarded]);
-
-  /* ---------------- SEND MESSAGE ---------------- */
+  /* ---------- SEND MESSAGE ---------- */
   const sendMessage = async () => {
-    if (!input.trim() || !email) return;
+    if (!input.trim()) return;
 
-    const newMessages: Message[] = [...messages, { sender: "user", text: input }];
-    setMessages(newMessages);
+    const userMessage: Message = {
+      sender: "user",
+      text: input,
+    };
+
+    const updatedMessages: Message[] = [...messages, userMessage];
+
+    setMessages(updatedMessages);
     setInput("");
-    setIsTyping(true);
+    setTyping(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email,
           messages: [
             {
               role: "system",
-              content: `
-You are Calmind — kind, warm, quietly humorous.
-Respond briefly like a caring friend.
-Use poetic or literary comfort when helpful.
-No medical advice. Keep it human.
-              `,
+              content:
+                "You are a calm, gentle companion. Respond briefly. Use poetic or literary comfort. No medical advice. Sound human.",
             },
-            ...newMessages.map((m) => ({
+            ...updatedMessages.map((m) => ({
               role: m.sender === "user" ? "user" : "assistant",
               content: m.text,
             })),
@@ -112,32 +56,30 @@ No medical advice. Keep it human.
       });
 
       const data = await res.json();
-      const calmindText = data.text;
 
-      setTimeout(() => {
-        const updated: Message[] = [...newMessages, { sender: "calmind", text: calmindText }];
-        setMessages(updated);
-        setIsTyping(false);
+      const calmindReply: Message = {
+        sender: "calmind",
+        text: data.text,
+      };
 
-        // Save messages to Supabase
-        updated.forEach(async (m) => {
-          await supabase.from("chats").insert({
-            user_email: email,
-            sender: m.sender,
-            message: m.text,
-          });
-        });
-      }, 1200);
+      setMessages((prev) => [...prev, calmindReply]);
     } catch {
-      setMessages((prev) => [...prev, { sender: "calmind", text: "I'm here. Try again 💜" }]);
-      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "calmind",
+          text: "I’m still here. Even silence counts sometimes.",
+        },
+      ]);
+    } finally {
+      setTyping(false);
     }
   };
 
-  /* ---------------- RENDER ---------------- */
-  if (!hasOnboarded) {
+  /* ---------- STEP 1 : EMAIL ---------- */
+  if (step === "email") {
     return (
-      <div style={styles.onboardContainer}>
+      <div style={styles.container}>
         <h1 style={styles.title}>Calmind 💜</h1>
         <p style={styles.subtitle}>A quiet place for heavy thoughts.</p>
 
@@ -148,28 +90,46 @@ No medical advice. Keep it human.
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <input
-          style={styles.input}
-          placeholder="Name your companion of life’s twists"
-          value={calmindName}
-          onChange={(e) => setCalmindName(e.target.value)}
-        />
-
-        <button style={styles.primaryButton} onClick={handleOnboard}>
-          Enter Calmind
+        <button
+          style={styles.primaryButton}
+          onClick={() => email && setStep("name")}
+        >
+          Continue
         </button>
       </div>
     );
   }
 
+  /* ---------- STEP 2 : COMPANION NAME ---------- */
+  if (step === "name") {
+    return (
+      <div style={styles.container}>
+        <p style={styles.subtitle}>
+          What would you like to call your companion?
+          <br />
+          Something gentle. Something yours.
+        </p>
+
+        <input
+          style={styles.input}
+          value={companion}
+          onChange={(e) => setCompanion(e.target.value)}
+        />
+
+        <button
+          style={styles.primaryButton}
+          onClick={() => setStep("chat")}
+        >
+          Begin
+        </button>
+      </div>
+    );
+  }
+
+  /* ---------- CHAT ---------- */
   return (
     <div style={styles.chatContainer}>
-      <header style={styles.header}>
-        <span>{calmindName} 💜</span>
-        <button style={styles.settingsBtn} onClick={() => setShowSettings(!showSettings)}>
-          ⚙
-        </button>
-      </header>
+      <header style={styles.header}>{companion} 💜</header>
 
       <div style={styles.chatBox}>
         {messages.map((m, i) => (
@@ -177,37 +137,32 @@ No medical advice. Keep it human.
             key={i}
             style={{
               ...styles.bubble,
-              ...(m.sender === "user" ? styles.userBubble : styles.calmindBubble),
+              ...(m.sender === "user"
+                ? styles.userBubble
+                : styles.calmindBubble),
             }}
           >
             {m.text}
           </div>
         ))}
 
-        {isTyping && <div style={styles.calmindBubble}>…</div>}
+        {typing && (
+          <div style={styles.calmindBubble}>…</div>
+        )}
       </div>
 
       <div style={styles.inputRow}>
         <input
           style={styles.input}
           value={input}
+          placeholder="Say something…"
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type something…"
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         />
         <button style={styles.primaryButton} onClick={sendMessage}>
           Send
         </button>
       </div>
-
-      {showSettings && (
-        <div style={styles.settings}>
-          <input style={styles.input} value={calmindName} onChange={(e) => setCalmindName(e.target.value)} />
-          <button style={styles.secondaryButton} onClick={() => setMessages([])}>
-            Clear chat
-          </button>
-        </div>
-      )}
 
       <footer style={styles.footer}>
         Calmind is not a replacement for human or medical care.
@@ -216,17 +171,27 @@ No medical advice. Keep it human.
   );
 }
 
-/* ---------------- STYLES ---------------- */
+/* ---------- STYLES ---------- */
 const styles: Record<string, React.CSSProperties> = {
-  onboardContainer: {
+  container: {
     minHeight: "100vh",
-    background: "#2e004f",
+    background: "#1f0033",
     color: "#fff",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
     padding: 24,
-    gap: 12,
+    gap: 14,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  subtitle: {
+    textAlign: "center",
+    opacity: 0.9,
+    lineHeight: 1.6,
   },
   chatContainer: {
     minHeight: "100vh",
@@ -236,18 +201,58 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     padding: 12,
   },
-  title: { fontSize: 32, fontWeight: 700, textAlign: "center" },
-  subtitle: { textAlign: "center", opacity: 0.9 },
-  header: { display: "flex", justifyContent: "space-between", fontWeight: 600, marginBottom: 8 },
-  chatBox: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 },
-  bubble: { padding: "10px 14px", borderRadius: 16, maxWidth: "80%" },
-  userBubble: { alignSelf: "flex-end", background: "#ffffff", color: "#000" },
-  calmindBubble: { alignSelf: "flex-start", background: "#5e2b97", color: "#fff" },
-  inputRow: { display: "flex", gap: 8, marginTop: 8 },
-  input: { flex: 1, padding: 10, borderRadius: 8, border: "none", outline: "none" },
-  primaryButton: { background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "10px 14px", cursor: "pointer" },
-  secondaryButton: { background: "#444", color: "#fff", border: "none", borderRadius: 6, padding: "8px 12px" },
-  settingsBtn: { background: "none", border: "none", color: "#fff", cursor: "pointer" },
-  settings: { background: "#2e004f", padding: 12, borderRadius: 8, marginTop: 8 },
-  footer: { textAlign: "center", fontSize: 12, opacity: 0.7, marginTop: 6 },
+  header: {
+    fontWeight: 600,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  chatBox: {
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  bubble: {
+    padding: "10px 14px",
+    borderRadius: 16,
+    maxWidth: "80%",
+    lineHeight: 1.5,
+  },
+  userBubble: {
+    alignSelf: "flex-end",
+    background: "#ffffff",
+    color: "#000",
+  },
+  calmindBubble: {
+    alignSelf: "flex-start",
+    background: "#5e2b97",
+    color: "#fff",
+  },
+  inputRow: {
+    display: "flex",
+    gap: 8,
+    marginTop: 10,
+  },
+  input: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    border: "none",
+    outline: "none",
+  },
+  primaryButton: {
+    background: "#7c3aed",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "10px 14px",
+    cursor: "pointer",
+  },
+  footer: {
+    textAlign: "center",
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 6,
+  },
 };
