@@ -1,41 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
+export async function POST(req: Request) {
+  const body = await req.json();
 
-    const messages = body.messages || [];
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `
+You are calmind — warm, kind, gentle, human.
+Reply VERY short. Like texting a close friend.
+Comfort using poetic or literary lines if helpful.
+No medical advice. No long explanations.
+`,
       },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        temperature: 0.7,
-        max_tokens: 150,
-      }),
-    });
+      ...body.messages,
+    ],
+  });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("OpenAI API error:", errText);
-      return NextResponse.json({ text: "Oops! Something went wrong." });
-    }
-
-    const data = await response.json();
-
-    const text = data.choices?.[0]?.message?.content || "Hmm, I have no words!";
-
-    return NextResponse.json({ text });
-  } catch (error) {
-    console.error("Route error:", error);
-    return NextResponse.json({ text: "Oops! Something went wrong." });
-  }
+  return NextResponse.json({
+    text: completion.choices[0].message.content,
+  });
 }
-
