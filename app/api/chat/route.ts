@@ -1,30 +1,32 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
+export const runtime = "nodejs"; // IMPORTANT for OpenAI
+
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    const messages = body.messages;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: `
-You are calmind — warm, kind, gentle, human.
-Reply VERY short. Like texting a close friend.
-Comfort using poetic or literary lines if helpful.
-No medical advice. No long explanations.
-`,
-      },
-      ...body.messages,
-    ],
-  });
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.7,
+      max_tokens: 120,
+    });
 
-  return NextResponse.json({
-    text: completion.choices[0].message.content,
-  });
+    return NextResponse.json({
+      text: completion.choices[0].message.content,
+    });
+  } catch (error) {
+    console.error("Chat API error:", error);
+    return NextResponse.json(
+      { text: "Something went quiet… I'm still here 💜" },
+      { status: 500 }
+    );
+  }
 }

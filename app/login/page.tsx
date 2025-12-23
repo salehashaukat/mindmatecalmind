@@ -8,9 +8,10 @@ type Message = {
 };
 
 export default function LoginPage() {
-  const [step, setStep] = useState<"email" | "name" | "chat">("email");
   const [email, setEmail] = useState("");
-  const [companionName, setCompanionName] = useState("calmind");
+  const [hasOnboarded, setHasOnboarded] = useState(false);
+
+  const [calmindName, setCalmindName] = useState("calmind");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -19,41 +20,77 @@ export default function LoginPage() {
   // Load saved data
   useEffect(() => {
     const savedEmail = localStorage.getItem("email");
-    const savedName = localStorage.getItem("companionName");
+    const savedName = localStorage.getItem("calmindName");
     const savedMessages = localStorage.getItem("messages");
 
     if (savedEmail && savedName) {
       setEmail(savedEmail);
-      setCompanionName(savedName);
-      setStep("chat");
+      setCalmindName(savedName);
+      setHasOnboarded(true);
     }
-    if (savedMessages) setMessages(JSON.parse(savedMessages));
+    if (savedMessages) {
+      setMessages(JSON.parse(savedMessages));
+    }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("messages", JSON.stringify(messages));
-  }, [messages]);
+    if (hasOnboarded) {
+      localStorage.setItem("messages", JSON.stringify(messages));
+      localStorage.setItem("calmindName", calmindName);
+    }
+  }, [messages, calmindName, hasOnboarded]);
 
-  const startChat = () => {
-    localStorage.setItem("email", email);
-    localStorage.setItem("companionName", companionName);
-    setMessages([
-      {
-        sender: "calmind",
-        text: "I’m here now. You don’t have to carry everything alone.",
-      },
-    ]);
-    setStep("chat");
-  };
+  /* ---------------- ONBOARD ---------------- */
+
+  if (!hasOnboarded) {
+    return (
+      <div style={styles.onboardContainer}>
+        <h1 style={styles.title}>calmind 💜</h1>
+
+        <p style={styles.subtitle}>
+          A quiet place for heavy thoughts.
+        </p>
+
+        <input
+          style={styles.input}
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          style={styles.input}
+          placeholder="Name your companion of life’s twists"
+          value={calmindName}
+          onChange={(e) => setCalmindName(e.target.value)}
+        />
+
+        <button
+          style={styles.primaryButton}
+          onClick={() => {
+            if (!email || !calmindName) return;
+            localStorage.setItem("email", email);
+            localStorage.setItem("calmindName", calmindName);
+            setHasOnboarded(true);
+          }}
+        >
+          Enter calmind
+        </button>
+      </div>
+    );
+  }
+
+  /* ---------------- CHAT ---------------- */
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const updated: Message[] = [
+    const newMessages: Message[] = [
       ...messages,
       { sender: "user", text: input },
     ];
-    setMessages(updated);
+
+    setMessages(newMessages);
     setInput("");
     setIsTyping(true);
 
@@ -62,11 +99,21 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: updated.map((m) => ({
-            role: m.sender === "user" ? "user" : "assistant",
-            content: m.text,
-          })),
-          name: companionName,
+          messages: [
+            {
+              role: "system",
+              content: `
+You are calmind — kind, warm, quietly humorous.
+Respond briefly like a caring friend.
+Use poetic or literary comfort when helpful.
+No medical advice. Keep it human.
+              `,
+            },
+            ...newMessages.map((m) => ({
+              role: m.sender === "user" ? "user" : "assistant",
+              content: m.text,
+            })),
+          ],
         }),
       });
 
@@ -80,205 +127,180 @@ export default function LoginPage() {
         setIsTyping(false);
       }, 1200);
     } catch {
+      setMessages((prev) => [
+        ...prev,
+        { sender: "calmind", text: "I'm here. Try again 💜" },
+      ]);
       setIsTyping(false);
     }
   };
 
-  const TypingDots = () => (
-    <span>
-      <span className="dot">.</span>
-      <span className="dot">.</span>
-      <span className="dot">.</span>
-      <style jsx>{`
-        .dot {
-          animation: blink 1.4s infinite both;
-          font-weight: bold;
-        }
-        .dot:nth-child(2) {
-          animation-delay: 0.2s;
-        }
-        .dot:nth-child(3) {
-          animation-delay: 0.4s;
-        }
-        @keyframes blink {
-          0%,
-          80%,
-          100% {
-            opacity: 0;
-          }
-          40% {
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </span>
-  );
-
-  // ---------------- UI ----------------
-
-  if (step === "email") {
-    return (
-      <div style={screen}>
-        <h1 style={title}>Hi. I’m here for life’s twists 💜</h1>
-        <p style={text}>Enter your email</p>
-        <input
-          style={inputStyle}
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <button style={button} onClick={() => setStep("name")}>
-          Continue
-        </button>
-      </div>
-    );
-  }
-
-  if (step === "name") {
-    return (
-      <div style={screen}>
-        <h1 style={title}>Every journey feels lighter with a name.</h1>
-        <p style={text}>What would you like to call your companion?</p>
-        <input
-          style={inputStyle}
-          value={companionName}
-          onChange={(e) => setCompanionName(e.target.value)}
-        />
-        <button style={button} onClick={startChat}>
-          Begin
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div style={chatScreen}>
-      <h2 style={chatTitle}>{companionName} 💜</h2>
+    <div style={styles.chatContainer}>
+      <header style={styles.header}>
+        <span>{calmindName} 💜</span>
+        <button style={styles.settingsBtn} onClick={() => setShowSettings(!showSettings)}>
+          ⚙
+        </button>
+      </header>
 
-      <div style={chatBox}>
+      <div style={styles.chatBox}>
         {messages.map((m, i) => (
           <div
             key={i}
             style={{
-              ...bubble,
-              alignSelf: m.sender === "user" ? "flex-end" : "flex-start",
-              background:
-                m.sender === "user" ? "#E0E0E0" : "#E1BEE7",
+              ...styles.bubble,
+              ...(m.sender === "user"
+                ? styles.userBubble
+                : styles.calmindBubble),
             }}
           >
             {m.text}
           </div>
         ))}
+
         {isTyping && (
-          <div style={{ ...bubble, background: "#E1BEE7" }}>
-            <TypingDots />
-          </div>
+          <div style={styles.calmindBubble}>…</div>
         )}
       </div>
 
-      <div style={inputRow}>
+      <div style={styles.inputRow}>
         <input
-          style={inputStyle}
+          style={styles.input}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          placeholder="Type something…"
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Type here..."
         />
-        <button style={button} onClick={sendMessage}>
+        <button style={styles.primaryButton} onClick={sendMessage}>
           Send
         </button>
       </div>
 
-      <button
-        style={settings}
-        onClick={() => setShowSettings(!showSettings)}
-      >
-        ⚙️
-      </button>
-
       {showSettings && (
-        <div style={settingsBox}>
+        <div style={styles.settings}>
           <input
-            style={inputStyle}
-            value={companionName}
-            onChange={(e) => {
-              setCompanionName(e.target.value);
-              localStorage.setItem("companionName", e.target.value);
-            }}
+            style={styles.input}
+            value={calmindName}
+            onChange={(e) => setCalmindName(e.target.value)}
           />
           <button
-            style={button}
-            onClick={() => {
-              setMessages([]);
-              localStorage.removeItem("messages");
-            }}
+            style={styles.secondaryButton}
+            onClick={() => setMessages([])}
           >
-            Clear Chat
+            Clear chat
           </button>
         </div>
       )}
 
-      <footer style={footer}>
-        {companionName} isn’t a replacement for human connection.
+      <footer style={styles.footer}>
+        calmind is not a replacement for human or medical care.
       </footer>
     </div>
   );
 }
 
-// ---------------- Styles ----------------
+/* ---------------- STYLES ---------------- */
 
-const screen = {
-  height: "100vh",
-  display: "flex",
-  flexDirection: "column" as const,
-  justifyContent: "center",
-  alignItems: "center",
-  background: "#F3E5F5",
-  padding: 20,
+const styles: Record<string, React.CSSProperties> = {
+  onboardContainer: {
+    minHeight: "100vh",
+    background: "#2e004f",
+    color: "#fff",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    padding: 24,
+    gap: 12,
+  },
+  chatContainer: {
+    minHeight: "100vh",
+    background: "#1f0033",
+    color: "#fff",
+    display: "flex",
+    flexDirection: "column",
+    padding: 12,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  subtitle: {
+    textAlign: "center",
+    opacity: 0.9,
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontWeight: 600,
+    marginBottom: 8,
+  },
+  chatBox: {
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  bubble: {
+    padding: "10px 14px",
+    borderRadius: 16,
+    maxWidth: "80%",
+  },
+  userBubble: {
+    alignSelf: "flex-end",
+    background: "#ffffff",
+    color: "#000",
+  },
+  calmindBubble: {
+    alignSelf: "flex-start",
+    background: "#5e2b97",
+    color: "#fff",
+  },
+  inputRow: {
+    display: "flex",
+    gap: 8,
+    marginTop: 8,
+  },
+  input: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    border: "none",
+    outline: "none",
+  },
+  primaryButton: {
+    background: "#7c3aed",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "10px 14px",
+    cursor: "pointer",
+  },
+  secondaryButton: {
+    background: "#444",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    padding: "8px 12px",
+  },
+  settingsBtn: {
+    background: "none",
+    border: "none",
+    color: "#fff",
+    cursor: "pointer",
+  },
+  settings: {
+    background: "#2e004f",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  footer: {
+    textAlign: "center",
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 6,
+  },
 };
-
-const chatScreen = { ...screen, justifyContent: "flex-start" };
-
-const title = { color: "#4A148C", marginBottom: 10 };
-const chatTitle = { color: "#4A148C", marginBottom: 8 };
-const text = { color: "#4A148C", marginBottom: 10 };
-const inputStyle = {
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid #4A148C",
-  marginBottom: 10,
-  width: "100%",
-  maxWidth: 320,
-};
-const button = {
-  padding: "8px 14px",
-  borderRadius: 8,
-  border: "none",
-  background: "#4A148C",
-  color: "#fff",
-  cursor: "pointer",
-};
-const chatBox = {
-  flex: 1,
-  width: "100%",
-  maxWidth: 420,
-  overflowY: "auto" as const,
-  display: "flex",
-  flexDirection: "column" as const,
-};
-const bubble = {
-  padding: "8px 12px",
-  borderRadius: 12,
-  marginBottom: 6,
-  maxWidth: "80%",
-};
-const inputRow = { display: "flex", gap: 8, width: "100%", maxWidth: 420 };
-const settings = { background: "none", border: "none", color: "#4A148C" };
-const settingsBox = {
-  position: "absolute" as const,
-  bottom: 80,
-  background: "#fff",
-  padding: 10,
-  borderRadius: 8,
-};
-const footer = { fontSize: 12, color: "#555", marginTop: 10 };
