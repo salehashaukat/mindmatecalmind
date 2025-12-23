@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-// OpenAI
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
-// Supabase (server-side)
+// Initialize Supabase (server only)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
@@ -14,40 +16,35 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const { email, userMessage, history } = await req.json();
-    if (!email || !userMessage) return NextResponse.json({ text: "Email or message missing." }, { status: 400 });
 
-    // 1️⃣ Ensure profile exists
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, calmind_name")
-      .eq("email", email)
-      .limit(1);
-
-    let profileId: string;
-
-    if (profiles?.[0]) {
-      profileId = profiles[0].id;
-    } else {
-      const { data, error } = await supabase
-        .from("profiles")
-        .insert({ email, calmind_name: "Calmind" })
-        .select("id")
-        .single();
-      profileId = data!.id;
+    if (!email || !userMessage) {
+      return NextResponse.json(
+        { text: "Email or message missing." },
+        { status: 400 }
+      );
     }
 
-    // 2️⃣ Insert USER message
+    // 1️⃣ Save USER message
     await supabase.from("messages").insert({
-      profile_id: profileId,
+      email,
       sender: "user",
       text: userMessage,
     });
 
-    // 3️⃣ OpenAI reply
+    // 2️⃣ OpenAI response with enhanced personality
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are calmind — warm, poetic, gentle. Short replies. No medical advice." },
+        {
+          role: "system",
+          content: `
+You are Calmind — a warm, poetic, comforting companion.
+Always acknowledge the user's feelings.
+Encourage them gently, highlight their importance, and remind them human connection matters.
+Use metaphors, literary or nature imagery. Keep replies short, empathetic, and human-like.
+Never give medical advice.
+          `,
+        },
         ...history,
         { role: "user", content: userMessage },
       ],
@@ -57,16 +54,19 @@ export async function POST(req: NextRequest) {
 
     const reply = completion.choices?.[0]?.message?.content ?? "…";
 
-    // 4️⃣ Insert CALMIND message
+    // 3️⃣ Save CALMIND message
     await supabase.from("messages").insert({
-      profile_id: profileId,
+      email,
       sender: "calmind",
       text: reply,
     });
 
     return NextResponse.json({ text: reply });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ text: "Something went wrong." }, { status: 500 });
+    console.error("API ERROR:", err);
+    return NextResponse.json(
+      { text: "Something went wrong." },
+      { status: 500 }
+    );
   }
 }

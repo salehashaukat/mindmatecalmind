@@ -18,6 +18,20 @@ export default function Page() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
 
+  /* ---------- ADD GREETING ON CHAT START ---------- */
+  useEffect(() => {
+    if (step === "chat" && messages.length === 0) {
+      setMessages([
+        {
+          sender: "calmind",
+          text: `Hello! I’m ${companion} 💜. 
+I’m here to listen, to encourage, and remind you how important you are. 
+Even small moments matter. Let’s share them together.`,
+        },
+      ]);
+    }
+  }, [step]);
+
   /* ---------- SEND MESSAGE ---------- */
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -73,7 +87,10 @@ export default function Page() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <button style={styles.primaryButton} onClick={() => email && setStep("name")}>
+        <button
+          style={styles.primaryButton}
+          onClick={() => email && setStep("name")}
+        >
           Continue
         </button>
       </div>
