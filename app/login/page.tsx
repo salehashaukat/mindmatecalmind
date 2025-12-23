@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-/* ---------- TYPES ---------- */
 type Sender = "user" | "calmind";
 
 type Message = {
@@ -10,7 +9,6 @@ type Message = {
   text: string;
 };
 
-/* ---------- COMPONENT ---------- */
 export default function Page() {
   const [step, setStep] = useState<"email" | "name" | "chat">("email");
   const [email, setEmail] = useState("");
@@ -24,13 +22,8 @@ export default function Page() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = {
-      sender: "user",
-      text: input,
-    };
-
-    const updatedMessages: Message[] = [...messages, userMessage];
-
+    const userMessage: Message = { sender: "user", text: input };
+    const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput("");
     setTyping(true);
@@ -41,31 +34,21 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a calm, gentle companion. Respond briefly. Use poetic or literary comfort. No medical advice. Sound human.",
-            },
-            ...updatedMessages.map((m) => ({
-              role: m.sender === "user" ? "user" : "assistant",
-              content: m.text,
-            })),
-          ],
+          userMessage: input,
+          history: updatedMessages.map((m) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.text,
+          })),
         }),
       });
 
       const data = await res.json();
 
-      const calmindReply: Message = {
-        sender: "calmind",
-        text: data.text,
-      };
-
-      setMessages((prev) => [...prev, calmindReply]);
+      const calmindReply: Message = { sender: "calmind", text: data.text };
+      setMessages((prev) => [...updatedMessages, calmindReply]);
     } catch {
       setMessages((prev) => [
-        ...prev,
+        ...messages,
         {
           sender: "calmind",
           text: "I’m still here. Even silence counts sometimes.",
@@ -90,10 +73,7 @@ export default function Page() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <button
-          style={styles.primaryButton}
-          onClick={() => email && setStep("name")}
-        >
+        <button style={styles.primaryButton} onClick={() => email && setStep("name")}>
           Continue
         </button>
       </div>
@@ -116,10 +96,7 @@ export default function Page() {
           onChange={(e) => setCompanion(e.target.value)}
         />
 
-        <button
-          style={styles.primaryButton}
-          onClick={() => setStep("chat")}
-        >
+        <button style={styles.primaryButton} onClick={() => setStep("chat")}>
           Begin
         </button>
       </div>
@@ -137,18 +114,14 @@ export default function Page() {
             key={i}
             style={{
               ...styles.bubble,
-              ...(m.sender === "user"
-                ? styles.userBubble
-                : styles.calmindBubble),
+              ...(m.sender === "user" ? styles.userBubble : styles.calmindBubble),
             }}
           >
             {m.text}
           </div>
         ))}
 
-        {typing && (
-          <div style={styles.calmindBubble}>…</div>
-        )}
+        {typing && <div style={styles.calmindBubble}>…</div>}
       </div>
 
       <div style={styles.inputRow}>
@@ -183,76 +156,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 24,
     gap: 14,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: 700,
-    textAlign: "center",
-  },
-  subtitle: {
-    textAlign: "center",
-    opacity: 0.9,
-    lineHeight: 1.6,
-  },
-  chatContainer: {
-    minHeight: "100vh",
-    background: "#1f0033",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    padding: 12,
-  },
-  header: {
-    fontWeight: 600,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  chatBox: {
-    flex: 1,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  bubble: {
-    padding: "10px 14px",
-    borderRadius: 16,
-    maxWidth: "80%",
-    lineHeight: 1.5,
-  },
-  userBubble: {
-    alignSelf: "flex-end",
-    background: "#ffffff",
-    color: "#000",
-  },
-  calmindBubble: {
-    alignSelf: "flex-start",
-    background: "#5e2b97",
-    color: "#fff",
-  },
-  inputRow: {
-    display: "flex",
-    gap: 8,
-    marginTop: 10,
-  },
-  input: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 8,
-    border: "none",
-    outline: "none",
-  },
-  primaryButton: {
-    background: "#7c3aed",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 14px",
-    cursor: "pointer",
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: 12,
-    opacity: 0.6,
-    marginTop: 6,
-  },
+  title: { fontSize: 34, fontWeight: 700, textAlign: "center" },
+  subtitle: { textAlign: "center", opacity: 0.9, lineHeight: 1.6 },
+  chatContainer: { minHeight: "100vh", background: "#1f0033", color: "#fff", display: "flex", flexDirection: "column", padding: 12 },
+  header: { fontWeight: 600, textAlign: "center", marginBottom: 8 },
+  chatBox: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 },
+  bubble: { padding: "10px 14px", borderRadius: 16, maxWidth: "80%", lineHeight: 1.5 },
+  userBubble: { alignSelf: "flex-end", background: "#ffffff", color: "#000" },
+  calmindBubble: { alignSelf: "flex-start", background: "#5e2b97", color: "#fff" },
+  inputRow: { display: "flex", gap: 8, marginTop: 10 },
+  input: { flex: 1, padding: 10, borderRadius: 8, border: "none", outline: "none" },
+  primaryButton: { background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "10px 14px", cursor: "pointer" },
+  footer: { textAlign: "center", fontSize: 12, opacity: 0.6, marginTop: 6 },
 };
