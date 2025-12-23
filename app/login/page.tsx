@@ -8,7 +8,7 @@ type Message = {
   text: string;
 };
 
-// Initialize Supabase client
+// Initialize Supabase client (public keys safe for client)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -22,24 +22,22 @@ export default function LoginPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
-  /* ---------------- ONBOARD ---------------- */
+  /* ---------------- ONBOARDING ---------------- */
   const handleOnboard = async () => {
     if (!email || !calmindName) return;
 
+    // Save to localStorage
     localStorage.setItem("email", email);
     localStorage.setItem("calmindName", calmindName);
 
-    // Upsert user in Supabase
-    const { data, error } = await supabase
+    // Insert or update user in Supabase
+    const { data: userData } = await supabase
       .from("users")
       .upsert({ email, calmind_name: calmindName }, { onConflict: "email" })
       .select();
 
-    if (data?.[0]?.id) setUserId(data[0].id);
-
-    // Load previous chat
+    // Load previous messages if any
     const { data: chatData } = await supabase
       .from("chats")
       .select("*")
@@ -49,7 +47,7 @@ export default function LoginPage() {
     if (chatData) {
       setMessages(
         chatData.map((c) => ({
-          sender: c.sender as "user" | "calmind",
+          sender: c.sender === "user" ? "user" : "calmind", // ensures TypeScript type
           text: c.message,
         }))
       );
@@ -62,20 +60,22 @@ export default function LoginPage() {
   useEffect(() => {
     const savedEmail = localStorage.getItem("email");
     const savedName = localStorage.getItem("calmindName");
+    const savedMessages = localStorage.getItem("messages");
+
     if (savedEmail && savedName) {
       setEmail(savedEmail);
       setCalmindName(savedName);
       setHasOnboarded(true);
     }
-
-    const savedMessages = localStorage.getItem("messages");
-    if (savedMessages) setMessages(JSON.parse(savedMessages));
+    if (savedMessages) {
+      setMessages(JSON.parse(savedMessages));
+    }
   }, []);
 
   useEffect(() => {
     if (hasOnboarded) {
-      localStorage.setItem("calmindName", calmindName);
       localStorage.setItem("messages", JSON.stringify(messages));
+      localStorage.setItem("calmindName", calmindName);
     }
   }, [messages, calmindName, hasOnboarded]);
 
@@ -97,7 +97,7 @@ export default function LoginPage() {
             {
               role: "system",
               content: `
-You are calmind — kind, warm, quietly humorous.
+You are Calmind — kind, warm, quietly humorous.
 Respond briefly like a caring friend.
 Use poetic or literary comfort when helpful.
 No medical advice. Keep it human.
@@ -115,10 +115,7 @@ No medical advice. Keep it human.
       const calmindText = data.text;
 
       setTimeout(() => {
-        const updated: Message[] = [
-          ...newMessages,
-          { sender: "calmind", text: calmindText } as Message,
-        ];
+        const updated: Message[] = [...newMessages, { sender: "calmind", text: calmindText }];
         setMessages(updated);
         setIsTyping(false);
 
@@ -132,10 +129,7 @@ No medical advice. Keep it human.
         });
       }, 1200);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { sender: "calmind", text: "I'm here. Try again 💜" } as Message,
-      ]);
+      setMessages((prev) => [...prev, { sender: "calmind", text: "I'm here. Try again 💜" }]);
       setIsTyping(false);
     }
   };
@@ -153,12 +147,14 @@ No medical advice. Keep it human.
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+
         <input
           style={styles.input}
           placeholder="Name your companion of life’s twists"
           value={calmindName}
           onChange={(e) => setCalmindName(e.target.value)}
         />
+
         <button style={styles.primaryButton} onClick={handleOnboard}>
           Enter Calmind
         </button>
@@ -170,7 +166,9 @@ No medical advice. Keep it human.
     <div style={styles.chatContainer}>
       <header style={styles.header}>
         <span>{calmindName} 💜</span>
-        <button style={styles.settingsBtn} onClick={() => setShowSettings(!showSettings)}>⚙</button>
+        <button style={styles.settingsBtn} onClick={() => setShowSettings(!showSettings)}>
+          ⚙
+        </button>
       </header>
 
       <div style={styles.chatBox}>
@@ -185,6 +183,7 @@ No medical advice. Keep it human.
             {m.text}
           </div>
         ))}
+
         {isTyping && <div style={styles.calmindBubble}>…</div>}
       </div>
 
@@ -196,13 +195,17 @@ No medical advice. Keep it human.
           placeholder="Type something…"
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         />
-        <button style={styles.primaryButton} onClick={sendMessage}>Send</button>
+        <button style={styles.primaryButton} onClick={sendMessage}>
+          Send
+        </button>
       </div>
 
       {showSettings && (
         <div style={styles.settings}>
           <input style={styles.input} value={calmindName} onChange={(e) => setCalmindName(e.target.value)} />
-          <button style={styles.secondaryButton} onClick={() => setMessages([])}>Clear chat</button>
+          <button style={styles.secondaryButton} onClick={() => setMessages([])}>
+            Clear chat
+          </button>
         </div>
       )}
 
